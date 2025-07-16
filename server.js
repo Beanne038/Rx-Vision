@@ -21,7 +21,6 @@ const authLimiter = rateLimit({
 app.use('/api/register', authLimiter);
 app.use('/api/login', authLimiter);
 
-
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -32,15 +31,22 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-
 const saltRounds = 12;
 
-// Registration Endpoint
+// ✅ Audit logging function
+async function logAudit(userId, action) {
+  try {
+    await pool.query("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)", [userId, action]);
+  } catch (err) {
+    console.error("Audit log error:", err);
+  }
+}
+
+// ✅ Registration Endpoint with audit logging
 app.post('/api/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Validate input
     if (!name || !email || !password) {
       return res.status(400).json({ 
         success: false,
@@ -48,12 +54,11 @@ app.post('/api/register', async (req, res) => {
       });
     }
 
-    // Check if email exists
     const [existing] = await pool.query(
       'SELECT id FROM users WHERE email = ?', 
       [email]
     );
-    
+
     if (existing.length > 0) {
       return res.status(400).json({ 
         success: false,
@@ -61,14 +66,15 @@ app.post('/api/register', async (req, res) => {
       });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Insert user
     const [result] = await pool.query(
       'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
       [name, email, hashedPassword]
     );
+
+    // ✅ Audit log for registration
+    await logAudit(result.insertId, 'User registered');
 
     res.status(201).json({ 
       success: true,
@@ -85,12 +91,11 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// Login Endpoint
+// ✅ Login Endpoint with audit logging
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validate input
     if (!email || !password) {
       return res.status(400).json({ 
         success: false,
@@ -98,12 +103,11 @@ app.post('/api/login', async (req, res) => {
       });
     }
 
-    // Find user
     const [users] = await pool.query(
       'SELECT id, name, email, password FROM users WHERE email = ?', 
       [email]
     );
-    
+
     if (users.length === 0) {
       return res.status(401).json({ 
         success: false,
@@ -112,9 +116,8 @@ app.post('/api/login', async (req, res) => {
     }
 
     const user = users[0];
-
-    // Verify password
     const passwordMatch = await bcrypt.compare(password, user.password);
+
     if (!passwordMatch) {
       return res.status(401).json({ 
         success: false,
@@ -122,8 +125,15 @@ app.post('/api/login', async (req, res) => {
       });
     }
 
-    // Generate JWT token
-    const token = jwt.sign({ id: user.id, name: user.name, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign(
+      { id: user.id, name: user.name, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    // ✅ Audit log for login
+    await logAudit(user.id, 'User logged in');
+
     res.json({ 
       success: true,
       message: 'Login successful',
@@ -144,11 +154,10 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-const PORT = 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
-// Example protected route
-
 app.get('/api/some-private-data', authenticateToken, (req, res) => {
   res.json({ message: "Secure data", user: req.user });
 });
+
+const PORT = 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+

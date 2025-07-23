@@ -1,124 +1,62 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
-void main() {
-  runApp(const MyApp());
-}
+class PrescriptionDetailsView extends StatefulWidget {
+  final Map<String, dynamic> prescription;
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const PrescriptionDetailsView({super.key, required this.prescription});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Prescription Details',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        dividerTheme: const DividerThemeData(
-          thickness: 1,
-          space: 20,
-          color: Colors.grey,
-        ),
-      ),
-      home: const PrescriptionDetailsView(),
-      debugShowCheckedModeBanner: false,
-    );
+  State<PrescriptionDetailsView> createState() => _PrescriptionDetailsViewState();
+}
+
+class _PrescriptionDetailsViewState extends State<PrescriptionDetailsView> {
+  Future<void> deletePrescription(BuildContext context) async {
+    final id = widget.prescription['id'];
+    final response = await http.delete(Uri.parse('http://localhost:3000/api/prescriptions/$id'));
+
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Prescription marked as dispensed.')),
+      );
+      Navigator.pop(context, true); // Send result back to trigger refresh
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to delete prescription.')),
+      );
+    }
   }
-}
-
-class PrescriptionDetailsView extends StatelessWidget {
-  const PrescriptionDetailsView({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final prescription = widget.prescription;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Prescription Details'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: SingleChildScrollView(
+      appBar: AppBar(title: const Text('Prescription Details')),
+      body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: ListView(
           children: [
-            const Text(
-              'Patient: Maria Santos',
-              style: TextStyle(fontSize: 16, height: 1.5),
-            ),
-            const Text(
-              'Doctor: Dr. Reyes',
-              style: TextStyle(fontSize: 16, height: 1.5),
-            ),
-            const Text(
-              'Date: June 24, 2025',
-              style: TextStyle(fontSize: 16, height: 1.5),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Medicines Prescribed:',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                height: 1.5,
-              ),
-            ),
+            Text("Patient Name: ${prescription['patient_name']}", style: const TextStyle(fontSize: 18)),
             const SizedBox(height: 8),
-            _buildMedicineItem('Amoxicillin 500mg - 2x a day - 7days'),
-            _buildMedicineItem('Paracetamol - 1 tablet - every 6 hours'),
-            _buildMedicineItem('Vitamins C - 1x a day'),
-            const SizedBox(height: 16),
-            const Text(
-              'NOTES: Take after meals. Refill after 1 week.',
-              style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
-            ),
-            const Divider(),
+            Text("Doctor Name: ${prescription['doctor_name']}", style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 8),
+            Text("Date: ${prescription['date']}", style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 8),
+            Text("Medication: ${prescription['medication']}", style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 8),
+            Text("Dosage: ${prescription['dosage']}", style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 8),
+            Text("Instructions: ${prescription['instructions']}", style: const TextStyle(fontSize: 18)),
             const SizedBox(height: 24),
-            Center(
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  // Handle mark as dispensed
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Prescription marked as dispensed')),
-                  );
-                },
-                icon: const Icon(Icons.check_circle_outline),
-                label: const Text(
-                  'Mark as Dispensed',
-                  style: TextStyle(fontSize: 16),
-                ),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(250, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.check),
+              label: const Text("Mark as Dispensed"),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => deletePrescription(context),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildMedicineItem(String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 4.0, right: 8.0),
-            child: Icon(Icons.circle, size: 8),
-          ),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 16, height: 1.5),
-            ),
-          ),
-        ],
       ),
     );
   }

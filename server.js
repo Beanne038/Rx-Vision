@@ -33,7 +33,6 @@ const pool = mysql.createPool({
 
 const saltRounds = 12;
 
-// ✅ Audit logging function
 async function logAudit(userId, action) {
   try {
     await pool.query("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)", [userId, action]);
@@ -42,122 +41,221 @@ async function logAudit(userId, action) {
   }
 }
 
-// ✅ Registration Endpoint with audit logging
+// ✅ Registration
 app.post('/api/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
-
-    if (!name || !email || !password) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'All fields are required' 
-      });
+    if (!name?.trim() || !email?.trim() || !password?.trim()) {
+      return res.status(400).json({ success: false, message: 'All fields are required' });
     }
-
-    const [existing] = await pool.query(
-      'SELECT id FROM users WHERE email = ?', 
-      [email]
-    );
-
+    const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
     if (existing.length > 0) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Email already exists' 
-      });
+      return res.status(400).json({ success: false, message: 'Email already exists' });
     }
-
     const hashedPassword = await bcrypt.hash(password, saltRounds);
-
     const [result] = await pool.query(
       'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
       [name, email, hashedPassword]
     );
-
-    // ✅ Audit log for registration
     await logAudit(result.insertId, 'User registered');
-
-    res.status(201).json({ 
-      success: true,
-      message: 'Registration successful',
-      userId: result.insertId 
-    });
-
+    res.status(201).json({ success: true, message: 'Registration successful', userId: result.insertId });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Internal server error' 
-    });
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 
-// ✅ Login Endpoint with audit logging
+// ✅ Login
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Email and password are required' 
-      });
+    if (!email?.trim() || !password?.trim()) {
+      return res.status(400).json({ success: false, message: 'Email and password are required' });
     }
-
-    const [users] = await pool.query(
-      'SELECT id, name, email, password FROM users WHERE email = ?', 
-      [email]
-    );
-
+    const [users] = await pool.query('SELECT id, name, email, password FROM users WHERE email = ?', [email]);
     if (users.length === 0) {
-      return res.status(401).json({ 
-        success: false,
-        message: 'Invalid credentials' 
-      });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
-
     const user = users[0];
     const passwordMatch = await bcrypt.compare(password, user.password);
-
     if (!passwordMatch) {
-      return res.status(401).json({ 
-        success: false,
-        message: 'Invalid credentials' 
-      });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
-
-    const token = jwt.sign(
-      { id: user.id, name: user.name, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' }
-    );
-
-    // ✅ Audit log for login
+    const token = jwt.sign({ id: user.id, name: user.name, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
     await logAudit(user.id, 'User logged in');
-
-    res.json({ 
-      success: true,
-      message: 'Login successful',
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email
-      }
-    });
-
+    res.json({ success: true, message: 'Login successful', token, user: { id: user.id, name: user.name, email: user.email } });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Internal server error' 
-    });
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 
-app.get('/api/some-private-data', authenticateToken, (req, res) => {
-  res.json({ message: "Secure data", user: req.user });
+// ✅ Prescription: View
+app.get('/api/prescriptions', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM prescriptions');
+    res.json({ success: true, prescriptions: rows });
+  } catch (error) {
+    console.error('Fetch prescriptions error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
 });
 
+// ✅ Prescription: Add
+app.post('/api/prescriptions', async (req, res) => {
+  try {
+    const { patient_name, doctor_name, date, medication, dosage, instructions } = req.body;
+    if (!patient_name?.trim() || !doctor_name?.trim() || !date?.trim() || !medication?.trim() || !dosage?.trim() || !instructions?.trim()) {
+      return res.status(400).json({ success: false, message: 'All fields are required' });
+    }
+    await pool.query(
+      'INSERT INTO prescriptions (patient_name, doctor_name, date, medication, dosage, instructions) VALUES (?, ?, ?, ?, ?, ?)',
+      [patient_name, doctor_name, date, medication, dosage, instructions]
+    );
+    res.status(201).json({ success: true, message: 'Prescription added successfully' });
+  } catch (error) {
+    console.error('Add prescription error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ✅ Prescription: Delete
+app.delete('/api/prescriptions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM prescriptions WHERE id = ?', [id]);
+    res.json({ success: true, message: 'Prescription marked as dispensed' });
+  } catch (error) {
+    console.error('Delete prescription error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ✅ Supplier: View
+app.get('/api/suppliers', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM suppliers');
+    res.json({ success: true, suppliers: rows });
+  } catch (error) {
+    console.error('Fetch suppliers error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ✅ Supplier: Add
+app.post('/api/suppliers', async (req, res) => {
+  try {
+    const { name, contact_person, contact_number, email, address, last_delivery, product_type } = req.body;
+    if (!name?.trim() || !contact_person?.trim() || !contact_number?.trim() || !email?.trim() || !product_type?.trim()) {
+      return res.status(400).json({ success: false, message: 'All required fields must be filled' });
+    }
+    await pool.query(
+      'INSERT INTO suppliers (name, contact_person, contact_number, email, address, last_delivery, product_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [name, contact_person, contact_number, email, address || null, last_delivery || null, product_type]
+    );
+    res.status(201).json({ success: true, message: 'Supplier added successfully' });
+  } catch (error) {
+    console.error('Add supplier error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ✅ Supplier: Update
+app.put('/api/suppliers/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, contact_person, contact_number, email, address, last_delivery, product_type } = req.body;
+    if (!name?.trim() || !contact_person?.trim() || !contact_number?.trim() || !email?.trim() || !product_type?.trim()) {
+      return res.status(400).json({ success: false, message: 'All required fields must be filled' });
+    }
+    await pool.query(
+      'UPDATE suppliers SET name = ?, contact_person = ?, contact_number = ?, email = ?, address = ?, last_delivery = ?, product_type = ? WHERE id = ?',
+      [name, contact_person, contact_number, email, address || null, last_delivery || null, product_type, id]
+    );
+    res.json({ success: true, message: 'Supplier updated successfully' });
+  } catch (error) {
+    console.error('Update supplier error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ✅ Supplier: Delete
+app.delete('/api/suppliers/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM suppliers WHERE id = ?', [id]);
+    res.json({ success: true, message: 'Supplier deleted successfully' });
+  } catch (error) {
+    console.error('Delete supplier error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ✅ Inventory: View
+app.get('/api/inventory', async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT inventory.*, suppliers.name AS supplier_name 
+      FROM inventory 
+      LEFT JOIN suppliers ON inventory.supplier_id = suppliers.id
+    `);
+    res.json({ success: true, inventory: rows });
+  } catch (error) {
+    console.error('Fetch inventory error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+
+// ✅ Inventory: Add
+app.post('/api/inventory', async (req, res) => {
+  try {
+    const { item_name, quantity, date_received, supplier_id } = req.body;
+    if (!item_name?.trim() || !quantity || !date_received?.trim() || !supplier_id) {
+      return res.status(400).json({ success: false, message: 'All fields are required' });
+    }
+    await pool.query(
+      'INSERT INTO inventory (item_name, quantity, date_received, supplier_id) VALUES (?, ?, ?, ?)',
+      [item_name, quantity, date_received, supplier_id]
+    );
+    res.status(201).json({ success: true, message: 'Inventory added successfully' });
+  } catch (error) {
+    console.error('Add inventory error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ✅ Inventory: Update
+app.put('/api/inventory/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { item_name, quantity, date_received, supplier_id } = req.body;
+    if (!item_name?.trim() || quantity == null || !date_received?.trim() || !supplier_id) {
+      return res.status(400).json({ success: false, message: 'All fields are required' });
+    }
+    await pool.query(
+      'UPDATE inventory SET item_name = ?, quantity = ?, date_received = ?, supplier_id = ? WHERE id = ?',
+      [item_name, quantity, date_received, supplier_id, id]
+    );
+    res.json({ success: true, message: 'Inventory updated successfully' });
+  } catch (error) {
+    console.error('Update inventory error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ✅ Inventory: Delete
+app.delete('/api/inventory/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM inventory WHERE id = ?', [id]);
+    res.json({ success: true, message: 'Inventory deleted successfully' });
+  } catch (error) {
+    console.error('Delete inventory error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ✅ Start server
 const PORT = 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-

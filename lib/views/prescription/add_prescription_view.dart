@@ -1,30 +1,6 @@
 import 'package:flutter/material.dart';
-
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Prescription Manager',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8.0),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        ),
-      ),
-      home: const AddPrescriptionView(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class AddPrescriptionView extends StatefulWidget {
   const AddPrescriptionView({super.key});
@@ -35,173 +11,82 @@ class AddPrescriptionView extends StatefulWidget {
 
 class _AddPrescriptionViewState extends State<AddPrescriptionView> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _patientController = TextEditingController();
-  final TextEditingController _doctorController = TextEditingController();
+  final TextEditingController _patientNameController = TextEditingController();
+  final TextEditingController _doctorNameController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
-  final TextEditingController _medicineController = TextEditingController();
+  final TextEditingController _medicationController = TextEditingController();
   final TextEditingController _dosageController = TextEditingController();
+  final TextEditingController _instructionsController = TextEditingController();
 
-  @override
-  void dispose() {
-    _patientController.dispose();
-    _doctorController.dispose();
-    _dateController.dispose();
-    _medicineController.dispose();
-    _dosageController.dispose();
-    super.dispose();
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final body = jsonEncode({
+      'patient_name': _patientNameController.text.trim(),
+      'doctor_name': _doctorNameController.text.trim(),
+      'date': _dateController.text.trim(),
+      'medication': _medicationController.text.trim(),
+      'dosage': _dosageController.text.trim(),
+      'instructions': _instructionsController.text.trim(),
+    });
+
+    final response = await http.post(
+      Uri.parse('http://localhost:3000/api/prescriptions'),
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Prescription uploaded successfully')));
+      Navigator.pop(context); // ✅ Go back to list
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${response.body}')));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add New Prescription'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: SingleChildScrollView(
+      appBar: AppBar(title: const Text('Upload New Prescription')),
+      body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: ListView(
             children: [
-              const SizedBox(height: 16),
               TextFormField(
-                controller: _patientController,
-                decoration: const InputDecoration(
-                  labelText: 'Patient',
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter patient name';
-                  }
-                  return null;
-                },
+                controller: _patientNameController,
+                decoration: const InputDecoration(labelText: 'Patient Name'),
+                validator: (value) => value == null || value.isEmpty ? 'Required' : null,
               ),
-              const SizedBox(height: 16),
               TextFormField(
-                controller: _doctorController,
-                decoration: const InputDecoration(
-                  labelText: 'Doctor Name',
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter doctor name';
-                  }
-                  return null;
-                },
+                controller: _doctorNameController,
+                decoration: const InputDecoration(labelText: 'Doctor Name'),
+                validator: (value) => value == null || value.isEmpty ? 'Required' : null,
               ),
-              const SizedBox(height: 16),
               TextFormField(
                 controller: _dateController,
-                decoration: const InputDecoration(
-                  labelText: 'Date',
-                  suffixIcon: Icon(Icons.calendar_today),
-                ),
-                readOnly: true,
-                onTap: () async {
-                  final DateTime? pickedDate = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.now(),
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2100),
-                  );
-                  if (pickedDate != null) {
-                    setState(() {
-                      _dateController.text =
-                          "${pickedDate.day}/${pickedDate.month}/${pickedDate.year}";
-                    });
-                  }
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please select date';
-                  }
-                  return null;
-                },
+                decoration: const InputDecoration(labelText: 'Date (e.g. June 24, 2025)'),
+                validator: (value) => value == null || value.isEmpty ? 'Required' : null,
               ),
-              const SizedBox(height: 24),
-              const Text(
-                'Medicines Name',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
               TextFormField(
-                controller: _medicineController,
-                decoration: const InputDecoration(
-                  hintText: 'Enter medicine names',
-                ),
-                maxLines: 3,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter medicines';
-                  }
-                  return null;
-                },
+                controller: _medicationController,
+                decoration: const InputDecoration(labelText: 'Medication'),
+                validator: (value) => value == null || value.isEmpty ? 'Required' : null,
               ),
-              const SizedBox(height: 16),
-              const Text(
-                'Dosage & Duration',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
               TextFormField(
                 controller: _dosageController,
-                decoration: const InputDecoration(
-                  hintText: 'Enter dosage instructions',
-                ),
-                maxLines: 3,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter dosage instructions';
-                  }
-                  return null;
-                },
+                decoration: const InputDecoration(labelText: 'Dosage'),
               ),
-              const SizedBox(height: 32),
+              TextFormField(
+                controller: _instructionsController,
+                decoration: const InputDecoration(labelText: 'Instructions'),
+              ),
+              const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    // Save logic here
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Prescription saved successfully')),
-                    );
-                    Navigator.pop(context); 
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text('Save'),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: () => Navigator.pop(context),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: const BorderSide(color: Colors.grey),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text('Cancel'),
-              ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Back'),
+                onPressed: _submitForm,
+                child: const Text('Submit'),
               ),
             ],
           ),

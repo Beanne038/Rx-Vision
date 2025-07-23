@@ -1,75 +1,169 @@
+// inventory_view.dart
+
 import 'package:flutter/material.dart';
-import 'package:rx_vision/views/stock/stock_views.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
-void main() {
-  runApp(const MyApp());
-}
+import 'add_inventory_view.dart';
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Rx Vision - Inventory',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(primarySwatch: Colors.blue, visualDensity: VisualDensity.adaptivePlatformDensity),
-      home: InventoryView(),
-    );
-  }
-}
-
-class InventoryView extends StatelessWidget {
+class InventoryView extends StatefulWidget {
   const InventoryView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Inventory Page'), centerTitle: true, backgroundColor: Colors.blue[800], foregroundColor: Colors.white),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView(
+  State<InventoryView> createState() => _InventoryViewState();
+}
+
+class _InventoryViewState extends State<InventoryView> {
+  List<Map<String, dynamic>> _inventory = [];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchInventory();
+  }
+
+  Future<void> fetchInventory() async {
+    final response = await http.get(Uri.parse('http://localhost:3000/api/inventory'));
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      setState(() {
+        _inventory = List<Map<String, dynamic>>.from(data['inventory']);
+      });
+    } else {
+      setState(() {
+        _inventory = [];
+      });
+    }
+  }
+
+  Future<void> deleteInventory(int id) async {
+    final response = await http.delete(Uri.parse('http://localhost:3000/api/inventory/$id'));
+    if (response.statusCode == 200) {
+      fetchInventory();
+    }
+  }
+
+  void showInventoryDetails(Map<String, dynamic> item) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Inventory Details'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildMedicineCard(context: context, title: 'Medicine #1', description: 'Description of Medicine #1'),
-            const SizedBox(height: 16),
-            _buildMedicineCard(context: context, title: 'Medicine #2', description: 'Description of Medicine #2'),
-            const SizedBox(height: 16),
-            _buildMedicineCard(context: context, title: 'Medicine #3', description: 'Description of Medicine #3'),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[800], foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 50)),
-              child: const Text('Back'),
-            ),
+            Text('Item Name: ${item['item_name'] ?? 'N/A'}'),
+            Text('Quantity: ${item['quantity'] ?? 'N/A'}'),
+            Text('Date Received: ${item['date_received'] ?? 'N/A'}'),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildMedicineCard({required String title, required String description, required BuildContext context}) {
-    // Extract the medicine number from the title
-    final medicineNumber = title.replaceAll('Medicine #', '');
-
-    return Card(
-      elevation: 4,
-      margin: EdgeInsets.symmetric(horizontal: 16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => StockDetailsView(medicineNumber: medicineNumber)));
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              SizedBox(height: 8),
-              Text(description, style: TextStyle(color: Colors.grey[600])),
-            ],
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Inventory Page'),
+        centerTitle: true,
+        backgroundColor: Colors.blue[800],
+        foregroundColor: Colors.white,
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: _inventory.isEmpty
+                  ? const Center(child: Text('No inventory found.'))
+                  : ListView.builder(
+                      itemCount: _inventory.length,
+                      itemBuilder: (context, index) {
+                        final item = _inventory[index];
+                        return Card(
+                          elevation: 4,
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          child: ListTile(
+                            title: Text(item['item_name'] ?? 'Unknown Item'),
+                            subtitle: Text(
+                              'Quantity: ${item['quantity']} | '
+                              'Date: ${item['date_received'] ?? 'N/A'}',
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.visibility, color: Colors.green),
+                                  onPressed: () => showInventoryDetails(item),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.edit, color: Colors.blue),
+                                  onPressed: () async {
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => AddInventoryView(inventory: item),
+                                      ),
+                                    );
+                                    fetchInventory();
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () => deleteInventory(item['id']),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
           ),
-        ),
+
+          // ✅ Add Inventory Button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 6),
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AddInventoryView()),
+                );
+                fetchInventory();
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Add Inventory'),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+                backgroundColor: Colors.blue,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ),
+
+          // ✅ Back Button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 6),
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('Back'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+                side: const BorderSide(color: Colors.grey),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

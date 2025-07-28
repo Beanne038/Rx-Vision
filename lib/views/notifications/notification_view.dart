@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 void main() {
   runApp(const MyApp());
@@ -21,8 +23,55 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class NotificationsView extends StatelessWidget {
+class NotificationsView extends StatefulWidget {
   const NotificationsView({super.key});
+
+  @override
+  State<NotificationsView> createState() => _NotificationsViewState();
+}
+
+class _NotificationsViewState extends State<NotificationsView> {
+  List<dynamic> notifications = [];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchNotifications();
+  }
+
+  Future<void> fetchNotifications() async {
+    try {
+      final response = await http.get(Uri.parse('http://localhost:3000/api/notifications'));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          notifications = data['notifications'];
+        });
+      } else {
+        setState(() {
+          notifications = [];
+        });
+      }
+    } catch (e) {
+      print('Error fetching notifications: $e');
+      setState(() {
+        notifications = [];
+      });
+    }
+  }
+
+  Future<void> deleteNotification(int id) async {
+    final response = await http.delete(Uri.parse('http://localhost:3000/api/notifications/$id'));
+    if (response.statusCode == 200) {
+      setState(() {
+        notifications.removeWhere((notif) => notif['id'] == id);
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to delete notification')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,36 +87,33 @@ class NotificationsView extends StatelessWidget {
         child: Column(
           children: [
             Expanded(
-              child: ListView(
-                children: const [
-                  NotificationItem(
-                    title: 'Heads up!',
-                    message: 'Metformin is on low stock - 12 tablets remaining.',
-                    isUrgent: true,
-                  ),
-                  SizedBox(height: 12),
-                  NotificationItem(
-                    title: 'Stock Update',
-                    message: 'Carlo updated the stock of Biogesic. +120 units.',
-                  ),
-                  SizedBox(height: 12),
-                  NotificationItem(
-                    title: 'Expiration Alert',
-                    message: 'Brexipiprazole are expiring within 30 days at August 10.',
-                    isWarning: true,
-                  ),
-                  SizedBox(height: 12),
-                  NotificationItem(
-                    title: 'New Prescription',
-                    message: 'A new prescription has been added by Dr. Reyes. Check the prescription tab.',
-                  ),
-                  SizedBox(height: 12),
-                  NotificationItem(
-                    title: 'Inventory Reminder',
-                    message: 'Inventory check for Vitamin B scheduled tomorrow.',
-                  ),
-                ],
-              ),
+              child: notifications.isEmpty
+                  ? const Center(child: Text('No notifications found.'))
+                  : ListView.builder(
+                      itemCount: notifications.length,
+                      itemBuilder: (context, index) {
+                        final notification = notifications[index];
+                        final title = notification['title'] ?? 'No Title';
+                        final message = notification['message'] ?? 'No Message';
+                        final timestamp = notification['timestamp'] ?? '';
+                        final isUrgent = title.toLowerCase().contains('deleted');
+                        final isWarning = title.toLowerCase().contains('expire');
+                        final id = notification['id'];
+
+                        return Column(
+                          children: [
+                            NotificationItem(
+                              title: title,
+                              message: "$message\n($timestamp)",
+                              isUrgent: isUrgent,
+                              isWarning: isWarning,
+                              onDelete: () => deleteNotification(id),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                        );
+                      },
+                    ),
             ),
             SizedBox(
               width: double.infinity,
@@ -93,11 +139,13 @@ class NotificationItem extends StatelessWidget {
   final String message;
   final bool isUrgent;
   final bool isWarning;
+  final VoidCallback onDelete;
 
   const NotificationItem({
     super.key,
     required this.title,
     required this.message,
+    required this.onDelete,
     this.isUrgent = false,
     this.isWarning = false,
   });
@@ -148,12 +196,15 @@ class NotificationItem extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     message,
-                    style: const TextStyle(
-                      fontSize: 14,
-                    ),
+                    style: const TextStyle(fontSize: 14),
                   ),
                 ],
               ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: onDelete,
+              tooltip: 'Delete',
             ),
           ],
         ),

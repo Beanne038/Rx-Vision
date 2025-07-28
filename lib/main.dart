@@ -14,6 +14,7 @@ import 'package:rx_vision/views/profile_settings/change_email.dart';
 import 'package:rx_vision/views/profile_settings/change_name.dart';
 import 'package:rx_vision/views/profile_settings/change_password.dart';
 import 'package:rx_vision/views/profile_settings/profile_setings_view.dart';
+
 void main() {
   runApp(const RxVisionApp());
 }

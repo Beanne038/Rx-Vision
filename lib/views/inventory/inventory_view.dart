@@ -37,11 +37,26 @@ class _InventoryViewState extends State<InventoryView> {
   }
 
   Future<void> deleteInventory(int id) async {
-    final response = await http.delete(Uri.parse('http://localhost:3000/api/inventory/$id'));
-    if (response.statusCode == 200) {
-      fetchInventory();
-    }
+  final response = await http.delete(Uri.parse('http://localhost:3000/api/inventory/$id'));
+  if (response.statusCode == 200) {
+    // Send notification
+    await http.post(
+      Uri.parse('http://localhost:3000/api/notifications'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'title': 'Inventory Deleted',
+        'message': 'An inventory item was deleted.',
+        'timestamp': DateTime.now().toIso8601String(),
+      }),
+    );
+    fetchInventory();
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to delete item (${response.statusCode})')),
+    );
   }
+}
+
 
   void showInventoryDetails(Map<String, dynamic> item) {
     showDialog(

@@ -256,6 +256,63 @@ app.delete('/api/inventory/:id', async (req, res) => {
   }
 });
 
+// POST Notification
+app.post('/api/notifications', async (req, res) => {
+  try {
+    const { title, message } = req.body;
+    await pool.query('INSERT INTO notifications (title, message) VALUES (?, ?)', [title, message]);
+    res.status(201).json({ success: true });
+  } catch (err) {
+    console.error('Notification Error:', err);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ✅ GET notifications
+app.get('/api/notifications', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM notifications ORDER BY created_at DESC');
+    res.json({ success: true, notifications: rows });
+  } catch (err) {
+    console.error('Fetch notifications error:', err);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+app.delete('/api/notifications/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [result] = await pool.query('DELETE FROM notifications WHERE id = ?', [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Notification not found' });
+    }
+
+    res.json({ success: true, message: 'Notification deleted successfully' });
+  } catch (error) {
+    console.error('Delete notification error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+
+// ✅ Get user by ID
+app.get('/api/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [rows] = await pool.query('SELECT id, name, email FROM users WHERE id = ?', [id]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    res.json({ success: true, user: rows[0] });
+  } catch (error) {
+    console.error('Fetch user error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 // ✅ Start server
 const PORT = 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

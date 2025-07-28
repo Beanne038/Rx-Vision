@@ -34,33 +34,43 @@ class _AddSupplierViewState extends State<AddSupplierView> {
     }
   }
 
-  Future<void> submitSupplier() async {
-    if (_formKey.currentState!.validate()) {
-      final supplier = {
-        'name': _nameController.text,
-        'contact_person': _contactPersonController.text,
-        'contact_number': _contactNumberController.text,
-        'email': _emailController.text,
-        'address': _addressController.text.isEmpty ? null : _addressController.text,
-        'last_delivery': _lastDeliveryController.text.isEmpty ? null : _lastDeliveryController.text,
-        'product_type': _productTypeController.text.isEmpty ? null : _productTypeController.text,
-      };
+Future<void> submitSupplier() async {
+  if (_formKey.currentState!.validate()) {
+    final supplier = {
+      'name': _nameController.text,
+      'contact_person': _contactPersonController.text,
+      'contact_number': _contactNumberController.text,
+      'email': _emailController.text,
+      'address': _addressController.text.isEmpty ? null : _addressController.text,
+      'last_delivery': _lastDeliveryController.text.isEmpty ? null : _lastDeliveryController.text,
+      'product_type': _productTypeController.text.isEmpty ? null : _productTypeController.text,
+    };
 
-      final uri = widget.supplier == null
-          ? Uri.parse('http://localhost:3000/api/suppliers')
-          : Uri.parse('http://localhost:3000/api/suppliers/${widget.supplier!['id']}');
+    final uri = widget.supplier == null
+        ? Uri.parse('http://localhost:3000/api/suppliers')
+        : Uri.parse('http://localhost:3000/api/suppliers/${widget.supplier!['id']}');
 
-      final response = widget.supplier == null
-          ? await http.post(uri, body: jsonEncode(supplier), headers: {'Content-Type': 'application/json'})
-          : await http.put(uri, body: jsonEncode(supplier), headers: {'Content-Type': 'application/json'});
+    final response = widget.supplier == null
+        ? await http.post(uri, body: jsonEncode(supplier), headers: {'Content-Type': 'application/json'})
+        : await http.put(uri, body: jsonEncode(supplier), headers: {'Content-Type': 'application/json'});
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        Navigator.pop(context);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to submit supplier')));
-      }
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      // ✅ Send notification after successful add or update
+      await http.post(
+        Uri.parse('http://localhost:3000/api/notifications'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'title': widget.supplier == null ? 'New Supplier Added' : 'Supplier Updated',
+          'message': 'Supplier ${_nameController.text} has been ${widget.supplier == null ? 'added' : 'updated'}.',
+        }),
+      );
+
+      Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to submit supplier')));
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {

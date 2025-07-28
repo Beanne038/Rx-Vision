@@ -1,29 +1,45 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:rx_vision/views/profile_settings/profile_setings_view.dart';
+import 'package:rx_vision/services/user_service.dart';
+import 'package:http/http.dart' as http;
 
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class ProfileView extends StatefulWidget {
+  const ProfileView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Rx Vision - Profile',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
-      home: const ProfileView(),
-    );
-  }
+  State<ProfileView> createState() => _ProfileViewState();
 }
 
-class ProfileView extends StatelessWidget {
-  const ProfileView({super.key});
+class _ProfileViewState extends State<ProfileView> {
+  String userName = '';
+  String userEmail = '';
+  int userId = 1; // 🔁 Replace this with actual logged-in user ID
+
+  @override
+  void initState() {
+    super.initState();
+    fetchUserProfile();
+  }
+
+  Future<void> fetchUserProfile() async {
+    try {
+      final response = await http.get(Uri.parse('http://localhost:3000/api/users/$userId'));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          setState(() {
+            userName = data['user']['name'];
+            userEmail = data['user']['email'];
+          });
+        }
+      } else {
+        print('Failed to load user data');
+      }
+    } catch (e) {
+      print('Error fetching user profile: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,14 +59,7 @@ class ProfileView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Profile Info Section
-            const Text(
-              'Name:',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            const Text('Name:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Container(
               width: double.infinity,
@@ -59,19 +68,10 @@ class ProfileView extends StatelessWidget {
                 border: Border.all(color: Colors.grey[300]!),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
-                'Jherico De Torres', // Replace with actual user name
-                style: TextStyle(fontSize: 16),
-              ),
+              child: Text(userName.isEmpty ? 'Loading...' : userName, style: const TextStyle(fontSize: 16)),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'Email:',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            const Text('Email:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Container(
               width: double.infinity,
@@ -80,13 +80,9 @@ class ProfileView extends StatelessWidget {
                 border: Border.all(color: Colors.grey[300]!),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
-                'jherico456@gmail.com', // Replace with actual user email
-                style: TextStyle(fontSize: 16),
-              ),
+              child: Text(userEmail.isEmpty ? 'Loading...' : userEmail, style: const TextStyle(fontSize: 16)),
             ),
             const Spacer(),
-            // Bottom Buttons
             Row(
               children: [
                 Expanded(
@@ -100,11 +96,7 @@ class ProfileView extends StatelessWidget {
                     ),
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.arrow_back),
-                        SizedBox(width: 8),
-                        Text('Back'),
-                      ],
+                      children: [Icon(Icons.arrow_back), SizedBox(width: 8), Text('Back')],
                     ),
                   ),
                 ),
@@ -112,7 +104,7 @@ class ProfileView extends StatelessWidget {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => ProfileSettingsView())); // Navigate to Profile Settings
+                      Navigator.pushNamed(context, '/profile_settings'); // change if needed
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue[800],

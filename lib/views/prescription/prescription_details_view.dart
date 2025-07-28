@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class PrescriptionDetailsView extends StatefulWidget {
   final Map<String, dynamic> prescription;
@@ -13,11 +14,26 @@ class PrescriptionDetailsView extends StatefulWidget {
 class _PrescriptionDetailsViewState extends State<PrescriptionDetailsView> {
   Future<void> deletePrescription(BuildContext context) async {
     final id = widget.prescription['id'];
+    final patientName = widget.prescription['patient_name'];
+
     final response = await http.delete(Uri.parse('http://localhost:3000/api/prescriptions/$id'));
 
     if (response.statusCode == 200) {
+      // ✅ Send notification after successful deletion
+      await http.post(
+        Uri.parse('http://localhost:3000/api/notifications'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'title': 'Prescription Dispensed',
+          'message': 'Prescription for $patientName has been marked as dispensed.',
+        }),
+      );
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Prescription marked as dispensed.')),
+        const SnackBar(
+          content: Text('Prescription marked as dispensed.'),
+          backgroundColor: Colors.red, // 🔴 Make this red
+        ),
       );
       Navigator.pop(context, true); // Send result back to trigger refresh
     } else {

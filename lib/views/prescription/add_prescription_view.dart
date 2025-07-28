@@ -19,31 +19,47 @@ class _AddPrescriptionViewState extends State<AddPrescriptionView> {
   final TextEditingController _instructionsController = TextEditingController();
 
   Future<void> _submitForm() async {
-    if (!_formKey.currentState!.validate()) return;
+  if (!_formKey.currentState!.validate()) return;
 
-    final body = jsonEncode({
-      'patient_name': _patientNameController.text.trim(),
-      'doctor_name': _doctorNameController.text.trim(),
-      'date': _dateController.text.trim(),
-      'medication': _medicationController.text.trim(),
-      'dosage': _dosageController.text.trim(),
-      'instructions': _instructionsController.text.trim(),
-    });
+  final patientName = _patientNameController.text.trim();
+  final doctorName = _doctorNameController.text.trim();
+  final body = jsonEncode({
+    'patient_name': patientName,
+    'doctor_name': doctorName,
+    'date': _dateController.text.trim(),
+    'medication': _medicationController.text.trim(),
+    'dosage': _dosageController.text.trim(),
+    'instructions': _instructionsController.text.trim(),
+  });
 
-    final response = await http.post(
-      Uri.parse('http://localhost:3000/api/prescriptions'),
+  final response = await http.post(
+    Uri.parse('http://localhost:3000/api/prescriptions'),
+    headers: {'Content-Type': 'application/json'},
+    body: body,
+  );
+
+  if (response.statusCode == 200 || response.statusCode == 201) {
+    // ✅ Send notification after successful add
+    await http.post(
+      Uri.parse('http://localhost:3000/api/notifications'),
       headers: {'Content-Type': 'application/json'},
-      body: body,
+      body: jsonEncode({
+        'title': 'New Prescription Added',
+        'message': 'Prescription for $patientName by Dr. $doctorName has been added.',
+      }),
     );
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Prescription uploaded successfully')));
-      Navigator.pop(context); // ✅ Go back to list
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${response.body}')));
-    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Prescription uploaded successfully')),
+    );
+    Navigator.pop(context);
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error: ${response.body}')),
+    );
   }
+}
 
   @override
   Widget build(BuildContext context) {

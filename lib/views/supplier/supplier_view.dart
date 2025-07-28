@@ -32,13 +32,25 @@ class _SupplierViewState extends State<SupplierView> {
   }
 
   Future<void> deleteSupplier(int id) async {
-    final response = await http.delete(Uri.parse('http://localhost:3000/api/suppliers/$id'));
-    if (response.statusCode == 200) {
-      fetchSuppliers();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to delete supplier')));
-    }
+  final supplier = suppliers.firstWhere((s) => s['id'] == id);
+  
+  final response = await http.delete(Uri.parse('http://localhost:3000/api/suppliers/$id'));
+  if (response.statusCode == 200) {
+    // Send notification
+    await http.post(
+      Uri.parse('http://localhost:3000/api/notifications'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'title': 'Supplier Deleted',
+        'message': 'Supplier ${supplier['name']} has been deleted.',
+      }),
+    );
+    fetchSuppliers();
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to delete supplier')));
   }
+}
+
 
   @override
   Widget build(BuildContext context) {

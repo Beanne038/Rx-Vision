@@ -28,6 +28,15 @@ class _AddInventoryViewState extends State<AddInventoryView> {
     }
   }
 
+  // ✅ Notification function
+  Future<void> sendNotification(String title, String message) async {
+    final uri = Uri.parse('http://localhost:3000/api/notifications');
+    await http.post(uri,
+      body: jsonEncode({'title': title, 'message': message}),
+      headers: {'Content-Type': 'application/json'},
+    );
+  }
+
   Future<void> submitInventory() async {
     if (_formKey.currentState!.validate()) {
       final inventoryData = {
@@ -46,6 +55,14 @@ class _AddInventoryViewState extends State<AddInventoryView> {
           : await http.put(uri, body: jsonEncode(inventoryData), headers: {'Content-Type': 'application/json'});
 
       if (response.statusCode == 200 || response.statusCode == 201) {
+        // ✅ Notification logic
+        final action = widget.inventory == null ? 'added' : 'updated';
+        final qty = inventoryData['quantity'];
+        await sendNotification(
+          'Stock $action',
+          '${_nameController.text} was $action. Quantity: $qty.',
+        );
+
         Navigator.pop(context);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(

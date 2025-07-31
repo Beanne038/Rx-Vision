@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart'as http;
+import 'package:rx_vision/views/login/login_view.dart';
 
 class ForgotPasswordView extends StatefulWidget {
   const ForgotPasswordView({super.key});
@@ -9,14 +12,30 @@ class ForgotPasswordView extends StatefulWidget {
 
 class _ForgotPasswordViewState extends State<ForgotPasswordView> {
   final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
   @override
   void dispose() {
+    _emailController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  Future<Map<String, dynamic>> _resetPassword(String email, String newPassword) async {
+    final response = await http.post(
+      Uri.parse('http://192.168.1.7:3000/api/reset-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'newPassword': newPassword}),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      return {'success': false};
+    }
   }
 
   @override
@@ -35,7 +54,6 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title
               const Text(
                 'Forgot Password',
                 style: TextStyle(
@@ -44,6 +62,33 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
                 ),
               ),
               const SizedBox(height: 32),
+
+              // Email Field
+              const Text(
+                'Email:',
+                style: TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  hintText: 'Enter your email',
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your email';
+                  }
+                  if (!value.contains('@')) {
+                    return 'Enter a valid email';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
 
               // New Password Field
               const Text(
@@ -122,17 +167,30 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
 
                   // Confirm Button
                   ElevatedButton(
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
-                        // Handle password reset logic
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Password updated successfully!'),
-                          ),
-                        );
-                        Navigator.pop(context);
-                      }
-                    },
+onPressed: () async {
+  if (_formKey.currentState!.validate()) {
+    final email = _emailController.text.trim();
+    final newPassword = _newPasswordController.text;
+
+    final response = await _resetPassword(email, newPassword);
+    if (response['success'] == true || response['forceLogout'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password updated. Please log in again.')),
+      );
+      
+      // Navigate to login screen and clear previous routes
+      Navigator.of(context).pushAndRemoveUntil(
+  MaterialPageRoute(builder: (context) => const LoginView()),
+  (Route<dynamic> route) => false,
+);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email not found or failed to reset.')),
+      );
+    }
+  }
+},
+
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue[800],
                       foregroundColor: Colors.white,

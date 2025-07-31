@@ -3,7 +3,7 @@ import 'package:rx_vision/views/forgot_password/forgotpassword_view.dart';
 import '../../../models/user_model.dart';
 import 'package:rx_vision/services/auth_service.dart';
 import 'package:rx_vision/views/dashboard/dashboard_view.dart';
-
+import 'package:rx_vision/services/user_service.dart';
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
 
@@ -29,43 +29,64 @@ class _LoginViewState extends State<LoginView> {
     super.dispose();
   }
 
-  Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
+Future<void> _login() async {
+  if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+  setState(() => _isLoading = true);
 
-    try {
-      final result = await AuthService.login(email: _emailController.text, password: _passwordController.text, context: context);
+  try {
+    final result = await AuthService.login(
+      email: _emailController.text,
+      password: _passwordController.text,
+      context: context,
+    );
 
-      debugPrint('Login Response: $result'); // Add this for debugging
+    debugPrint('Login Response: $result');
 
-      if (result['success'] == true) {
-        // Handle different response structures
-        dynamic userData = result['user'] ?? result; // Try both 'user' key and root level
+    if (result['success'] == true) {
+      dynamic userData = result['user'] ?? result;
 
-        if (userData['id'] == null) {
-          // If ID is still missing, try alternative keys
-          userData['id'] = userData['_id'] ?? userData['userId'] ?? '0';
-        }
-
-        final user = User.fromJson({'id': userData['id']?.toString() ?? '0', 'name': userData['name'] ?? 'Guest', 'email': userData['email'] ?? _emailController.text});
-
-        if (mounted) {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => DashboardView(user: user)));
-        }
-      } else {
-        throw Exception(result['message'] ?? 'Login failed');
+      if (userData['id'] == null) {
+        userData['id'] = userData['_id'] ?? userData['userId'] ?? '0';
       }
-    } catch (e) {
+
+      final user = User.fromJson({
+        'id': userData['id']?.toString() ?? '0',
+        'name': userData['name'] ?? 'Guest',
+        'email': userData['email'] ?? _emailController.text,
+      });
+
+      // ✅ Save user and token here
+      if (result.containsKey('token')) {
+        UserService.setUser({
+          'id': user.id,
+          'name': user.name,
+          'email': user.email,
+        }, result['token']);
+      }
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Login Failed: ${e.toString().replaceAll('Exception: ', '')}')));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => DashboardView(user: user)),
+        );
       }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+    } else {
+      throw Exception(result['message'] ?? 'Login failed');
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Login Failed: ${e.toString().replaceAll('Exception: ', '')}')),
+      );
+    }
+  } finally {
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
+}
+
 
   @override
   Widget build(BuildContext context) {

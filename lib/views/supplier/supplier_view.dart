@@ -20,7 +20,7 @@ class _SupplierViewState extends State<SupplierView> {
   }
 
   Future<void> fetchSuppliers() async {
-    final response = await http.get(Uri.parse('http://localhost:3000/api/suppliers'));
+    final response = await http.get(Uri.parse('http://192.168.1.7:3000/api/suppliers'));
     if (response.statusCode == 200) {
       final jsonData = json.decode(response.body);
       setState(() {
@@ -34,11 +34,11 @@ class _SupplierViewState extends State<SupplierView> {
   Future<void> deleteSupplier(int id) async {
   final supplier = suppliers.firstWhere((s) => s['id'] == id);
   
-  final response = await http.delete(Uri.parse('http://localhost:3000/api/suppliers/$id'));
+  final response = await http.delete(Uri.parse('http://192.168.1.7:3000/api/suppliers/$id'));
   if (response.statusCode == 200) {
     // Send notification
     await http.post(
-      Uri.parse('http://localhost:3000/api/notifications'),
+      Uri.parse('http://192.168.1.7:3000/api/notifications'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'title': 'Supplier Deleted',

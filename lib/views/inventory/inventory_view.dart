@@ -23,7 +23,7 @@ class _InventoryViewState extends State<InventoryView> {
   }
 
   Future<void> fetchInventory() async {
-    final response = await http.get(Uri.parse('http://localhost:3000/api/inventory'));
+    final response = await http.get(Uri.parse('http://192.168.1.7:3000/api/inventory'));
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       setState(() {
@@ -37,11 +37,11 @@ class _InventoryViewState extends State<InventoryView> {
   }
 
   Future<void> deleteInventory(int id) async {
-  final response = await http.delete(Uri.parse('http://localhost:3000/api/inventory/$id'));
+  final response = await http.delete(Uri.parse('http://192.168.1.7:3000/api/inventory/$id'));
   if (response.statusCode == 200) {
     // Send notification
     await http.post(
-      Uri.parse('http://localhost:3000/api/notifications'),
+      Uri.parse('http://192.168.1.7:3000/api/notifications'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'title': 'Inventory Deleted',

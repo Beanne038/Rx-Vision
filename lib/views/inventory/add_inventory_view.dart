@@ -30,7 +30,7 @@ class _AddInventoryViewState extends State<AddInventoryView> {
 
   // ✅ Notification function
   Future<void> sendNotification(String title, String message) async {
-    final uri = Uri.parse('http://localhost:3000/api/notifications');
+    final uri = Uri.parse('http://192.168.1.7:3000/api/notifications');
     await http.post(uri,
       body: jsonEncode({'title': title, 'message': message}),
       headers: {'Content-Type': 'application/json'},
@@ -47,8 +47,8 @@ class _AddInventoryViewState extends State<AddInventoryView> {
       };
 
       final uri = widget.inventory == null
-          ? Uri.parse('http://localhost:3000/api/inventory')
-          : Uri.parse('http://localhost:3000/api/inventory/${widget.inventory!['id']}');
+          ? Uri.parse('http://192.168.1.7:3000/api/inventory')
+          : Uri.parse('http://192.168.1.7:3000/api/inventory/${widget.inventory!['id']}');
 
       final response = widget.inventory == null
           ? await http.post(uri, body: jsonEncode(inventoryData), headers: {'Content-Type': 'application/json'})
@@ -86,28 +86,47 @@ class _AddInventoryViewState extends State<AddInventoryView> {
           key: _formKey,
           child: ListView(
             children: [
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Item Name'),
-                validator: (value) => value!.isEmpty ? 'Required' : null,
-              ),
-              TextFormField(
-                controller: _quantityController,
-                decoration: const InputDecoration(labelText: 'Quantity'),
-                keyboardType: TextInputType.number,
-                validator: (value) => value!.isEmpty ? 'Required' : null,
-              ),
-              TextFormField(
-                controller: _dateController,
-                decoration: const InputDecoration(labelText: 'Date Received (YYYY-MM-DD)'),
-                validator: (value) => value!.isEmpty ? 'Required' : null,
-              ),
-              TextFormField(
-                controller: _supplierIdController,
-                decoration: const InputDecoration(labelText: 'Supplier ID'),
-                keyboardType: TextInputType.number,
-                validator: (value) => value!.isEmpty ? 'Required' : null,
-              ),
+TextFormField(
+  controller: _nameController,
+  decoration: const InputDecoration(labelText: 'Item Name'),
+  validator: (value) {
+    if (value == null || value.trim().isEmpty) return 'Item name is required';
+    return null;
+  },
+),
+TextFormField(
+  controller: _quantityController,
+  decoration: const InputDecoration(labelText: 'Quantity'),
+  keyboardType: TextInputType.number,
+  validator: (value) {
+    if (value == null || value.trim().isEmpty) return 'Quantity is required';
+    final qty = int.tryParse(value);
+    if (qty == null || qty < 0) return 'Enter a valid non-negative number';
+    return null;
+  },
+),
+TextFormField(
+  controller: _dateController,
+  decoration: const InputDecoration(labelText: 'Date Received (YYYY-MM-DD)'),
+  validator: (value) {
+    if (value == null || value.trim().isEmpty) return 'Date is required';
+    final regex = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+    if (!regex.hasMatch(value)) return 'Enter date as YYYY-MM-DD';
+    return null;
+  },
+),
+TextFormField(
+  controller: _supplierIdController,
+  decoration: const InputDecoration(labelText: 'Supplier ID'),
+  keyboardType: TextInputType.number,
+  validator: (value) {
+    if (value == null || value.trim().isEmpty) return 'Supplier ID is required';
+    final id = int.tryParse(value);
+    if (id == null || id <= 0) return 'Enter a valid positive Supplier ID';
+    return null;
+  },
+),
+
               const SizedBox(height: 20),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 6),

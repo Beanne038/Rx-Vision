@@ -47,8 +47,8 @@ Future<void> submitSupplier() async {
     };
 
     final uri = widget.supplier == null
-        ? Uri.parse('http://localhost:3000/api/suppliers')
-        : Uri.parse('http://localhost:3000/api/suppliers/${widget.supplier!['id']}');
+        ? Uri.parse('http://192.168.1.7:3000/api/suppliers')
+        : Uri.parse('http://192.168.1.7:3000/api/suppliers/${widget.supplier!['id']}');
 
     final response = widget.supplier == null
         ? await http.post(uri, body: jsonEncode(supplier), headers: {'Content-Type': 'application/json'})
@@ -57,7 +57,7 @@ Future<void> submitSupplier() async {
     if (response.statusCode == 200 || response.statusCode == 201) {
       // ✅ Send notification after successful add or update
       await http.post(
-        Uri.parse('http://localhost:3000/api/notifications'),
+        Uri.parse('http://192.168.1.7:3000/api/notifications'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'title': widget.supplier == null ? 'New Supplier Added' : 'Supplier Updated',
@@ -84,37 +84,56 @@ Future<void> submitSupplier() async {
             child: Column(
               children: [
                 TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'Supplier Name'),
-                  validator: (value) => value!.isEmpty ? 'Required' : null,
-                ),
-                TextFormField(
-                  controller: _contactPersonController,
-                  decoration: const InputDecoration(labelText: 'Contact Person'),
-                  validator: (value) => value!.isEmpty ? 'Required' : null,
-                ),
-                TextFormField(
-                  controller: _contactNumberController,
-                  decoration: const InputDecoration(labelText: 'Contact Number'),
-                  validator: (value) => value!.isEmpty ? 'Required' : null,
-                ),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(labelText: 'Email'),
-                  validator: (value) => value!.isEmpty ? 'Required' : null,
-                ),
-                TextFormField(
-                  controller: _addressController,
-                  decoration: const InputDecoration(labelText: 'Address'),
-                ),
-                TextFormField(
-                  controller: _lastDeliveryController,
-                  decoration: const InputDecoration(labelText: 'Last Delivery (YYYY-MM-DD)'),
-                ),
-                TextFormField(
-                  controller: _productTypeController,
-                  decoration: const InputDecoration(labelText: 'Product Type'),
-                ),
+  controller: _nameController,
+  decoration: const InputDecoration(labelText: 'Supplier Name'),
+  validator: (value) => value == null || value.trim().isEmpty ? 'Supplier name is required' : null,
+),
+TextFormField(
+  controller: _contactPersonController,
+  decoration: const InputDecoration(labelText: 'Contact Person'),
+  validator: (value) => value == null || value.trim().isEmpty ? 'Contact person is required' : null,
+),
+TextFormField(
+  controller: _contactNumberController,
+  decoration: const InputDecoration(labelText: 'Contact Number'),
+  validator: (value) => value == null || value.trim().isEmpty ? 'Contact number is required' : null,
+),
+TextFormField(
+  controller: _emailController,
+  decoration: const InputDecoration(labelText: 'Email'),
+  validator: (value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Email is required';
+    }
+    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+    if (!emailRegex.hasMatch(value)) {
+      return 'Enter a valid email';
+    }
+    return null;
+  },
+),
+TextFormField(
+  controller: _addressController,
+  decoration: const InputDecoration(labelText: 'Address'),
+),
+TextFormField(
+  controller: _lastDeliveryController,
+  decoration: const InputDecoration(labelText: 'Last Delivery (YYYY-MM-DD)'),
+  validator: (value) {
+    if (value != null && value.trim().isNotEmpty) {
+      final dateRegex = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+      if (!dateRegex.hasMatch(value)) {
+        return 'Enter a valid date (YYYY-MM-DD)';
+      }
+    }
+    return null;
+  },
+),
+TextFormField(
+  controller: _productTypeController,
+  decoration: const InputDecoration(labelText: 'Product Type'),
+),
+
                 const SizedBox(height: 20),
                 Padding(
   padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 6),

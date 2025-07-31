@@ -90,6 +90,126 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+app.get('/api/users/profile', authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const [rows] = await pool.query('SELECT id, name, email FROM users WHERE id = ?', [userId]);
+    if (rows.length > 0) {
+      res.status(200).json({ success: true, user: rows[0] });
+    } else {
+      res.status(404).json({ success: false, message: 'User not found' });
+    }
+  } catch (error) {
+    console.error('User profile fetch error:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+app.put('/api/users/email', authenticateToken, async (req, res) => {
+  const { email } = req.body;
+  const userId = req.user.id;
+
+  if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
+
+  try {
+    await pool.query('UPDATE users SET email = ? WHERE id = ?', [email, userId]);
+    res.status(200).json({ success: true, message: 'Email updated successfully' });
+  } catch (error) {
+    console.error('Error updating email:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+app.put('/api/users/name', authenticateToken, async (req, res) => {
+  const { name } = req.body;
+  const userId = req.user.id;
+
+  if (!name?.trim()) {
+    return res.status(400).json({ success: false, message: 'Name is required' });
+  }
+
+  try {
+    const [result] = await pool.query('UPDATE users SET name = ? WHERE id = ?', [name, userId]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'User not found or name unchanged' });
+    }
+
+    await logAudit(userId, 'User updated name');
+
+    const [rows] = await pool.query('SELECT id, name, email FROM users WHERE id = ?', [userId]);
+
+    res.status(200).json({ success: true, message: 'Name updated successfully', user: rows[0] });
+  } catch (error) {
+    console.error('Error updating name:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// ✅ Change Password Route (POST /api/users/change-password)
+app.post('/api/users/change-password', authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ message: 'Missing required fields.' });
+  }
+
+  try {
+    const [results] = await pool.query('SELECT password FROM users WHERE id = ?', [userId]);
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    const user = results[0];
+    const match = await bcrypt.compare(currentPassword, user.password);
+
+    if (!match) {
+      return res.status(401).json({ message: 'Current password is incorrect.' });
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashedNewPassword, userId]);
+
+    // Tell the client to log out and clear token
+    res.status(200).json({
+      message: 'Password changed successfully. Please log in again.',
+      forceLogout: true
+    });
+  } catch (error) {
+    console.error('Unexpected error:', error);
+    res.status(500).json({ message: 'Something went wrong.' });
+  }
+});
+
+// ✅ Reset Password Route (POST /api/reset-password)
+app.post('/api/reset-password', async (req, res) => {
+  const { email, newPassword } = req.body;
+
+  if (!email || !newPassword) {
+    return res.status(400).json({ message: 'Email and password are required.' });
+  }
+
+  try {
+    const [results] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await pool.query('UPDATE users SET password = ? WHERE email = ?', [hashedPassword, email]);
+
+    return res.json({ message: 'Password updated successfully.' });
+  } catch (err) {
+    console.error('Error resetting password:', err);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+
 // ✅ Prescription: View
 app.get('/api/prescriptions', async (req, res) => {
   try {
@@ -315,4 +435,5 @@ app.get('/api/users/:id', async (req, res) => {
 
 // ✅ Start server
 const PORT = 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
+

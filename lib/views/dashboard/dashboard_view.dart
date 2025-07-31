@@ -4,6 +4,8 @@ import 'package:rx_vision/views/notifications/notification_view.dart';
 import 'package:rx_vision/views/prescription/prescription_view.dart';
 import 'package:rx_vision/views/profile/profile_view.dart';
 import 'package:rx_vision/views/supplier/supplier_view.dart';
+import 'package:rx_vision/views/login/login_view.dart';
+import 'package:rx_vision/services/user_service.dart';
 
 class DashboardView extends StatelessWidget {
   const DashboardView({super.key, required user});
@@ -119,7 +121,12 @@ class DashboardView extends StatelessWidget {
           TextButton(
             onPressed: () {
               // Perform logout
-              Navigator.popUntil(context, (route) => route.isFirst);
+              UserService.clearUser();
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginView()),
+                (route) => false,
+              );
             },
             child: const Text('Logout', style: TextStyle(color: Colors.red)),
           ),

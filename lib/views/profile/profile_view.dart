@@ -14,32 +14,48 @@ class ProfileView extends StatefulWidget {
 class _ProfileViewState extends State<ProfileView> {
   String userName = '';
   String userEmail = '';
-  int userId = 1; // 🔁 Replace this with actual logged-in user ID
 
   @override
   void initState() {
     super.initState();
-    fetchUserProfile();
+    fetchLoggedInUserProfile(); // 🔄 Now fetches current user
   }
 
-  Future<void> fetchUserProfile() async {
-    try {
-      final response = await http.get(Uri.parse('http://localhost:3000/api/users/$userId'));
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success'] == true) {
-          setState(() {
-            userName = data['user']['name'];
-            userEmail = data['user']['email'];
-          });
-        }
-      } else {
-        print('Failed to load user data');
-      }
-    } catch (e) {
-      print('Error fetching user profile: $e');
-    }
+  Future<void> fetchLoggedInUserProfile() async {
+  final token = UserService.authToken;
+
+  if (token == null || token.isEmpty) {
+    print('⚠️ No token found in UserService');
+    return;
   }
+
+  try {
+    final response = await http.get(
+      Uri.parse('http://192.168.1.7:3000/api/users/profile'),
+      headers: {
+        'Authorization': 'Bearer $token', // 👈 This sends your token
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['success'] == true) {
+        setState(() {
+          userName = data['user']['name'];
+          userEmail = data['user']['email'];
+        });
+      }
+    } else {
+      print('Failed to load user profile. Status code: ${response.statusCode}');
+      print('Response body: ${response.body}');
+    }
+  } catch (e) {
+    print('Error fetching user profile: $e');
+  }
+}
+
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +120,10 @@ class _ProfileViewState extends State<ProfileView> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.pushNamed(context, '/profile_settings'); // change if needed
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const ProfileSettingsView()),
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue[800],
@@ -122,3 +141,4 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 }
+

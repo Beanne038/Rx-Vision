@@ -23,7 +23,7 @@ class _PrescriptionViewState extends State<PrescriptionView> {
 
   Future<void> fetchPrescriptions() async {
     final response =
-        await http.get(Uri.parse('http://localhost:3000/api/prescriptions'));
+        await http.get(Uri.parse('http://192.168.1.7:3000/api/prescriptions'));
 
     if (response.statusCode == 200) {
       final jsonData = json.decode(response.body);

@@ -1,28 +1,7 @@
 import 'package:flutter/material.dart';
-
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Change Email Page',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        appBarTheme: const AppBarTheme(
-          elevation: 0,
-          centerTitle: true,
-        ),
-      ),
-      home: const ChangeEmailView(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:rx_vision/services/user_service.dart';
 
 class ChangeEmailView extends StatelessWidget {
   const ChangeEmailView({super.key});
@@ -38,7 +17,7 @@ class ChangeEmailView extends StatelessWidget {
           onPressed: () {
             _showChangeEmailDialog(context);
           },
-          child: const Text('Show Change Email Dialog'),
+          child: const Text('Change Email'),
         ),
       ),
     );
@@ -47,14 +26,13 @@ class ChangeEmailView extends StatelessWidget {
   void _showChangeEmailDialog(BuildContext context) {
     final TextEditingController emailController = TextEditingController();
     final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+    final currentEmail = UserService.currentUser?['email'] ?? 'Not available';
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.0),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Form(
@@ -64,12 +42,16 @@ class ChangeEmailView extends StatelessWidget {
                 children: [
                   const Text(
                     'Change Email',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Text("Current: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                      Expanded(child: Text(currentEmail)),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                   TextFormField(
                     controller: emailController,
                     decoration: const InputDecoration(
@@ -90,7 +72,6 @@ class ChangeEmailView extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
                         child: OutlinedButton(
@@ -110,14 +91,39 @@ class ChangeEmailView extends StatelessWidget {
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
-                          onPressed: () {
+                          onPressed: () async {
                             if (formKey.currentState!.validate()) {
-                              // Handle email change confirmation
                               final newEmail = emailController.text.trim();
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Email changed to: $newEmail')),
-                              );
+
+                              try {
+                                final response = await http.put(
+                                  Uri.parse('http://192.168.1.7:3000/api/users/email'),
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': 'Bearer ${UserService.authToken}',
+                                  },
+                                  body: jsonEncode({'email': newEmail}),
+                                );
+
+                                final data = jsonDecode(response.body);
+                                if (response.statusCode == 200 && data['success'] == true) {
+                                  // Update local state
+                                  UserService.currentUser?['email'] = newEmail;
+
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Email updated successfully')),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(data['message'] ?? 'Update failed')),
+                                  );
+                                }
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Server error')),
+                                );
+                              }
                             }
                           },
                           child: const Text('Confirm'),

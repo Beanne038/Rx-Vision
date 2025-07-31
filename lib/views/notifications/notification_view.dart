@@ -41,7 +41,7 @@ class _NotificationsViewState extends State<NotificationsView> {
 
   Future<void> fetchNotifications() async {
     try {
-      final response = await http.get(Uri.parse('http://localhost:3000/api/notifications'));
+      final response = await http.get(Uri.parse('http://192.168.1.7:3000/api/notifications'));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
@@ -61,7 +61,7 @@ class _NotificationsViewState extends State<NotificationsView> {
   }
 
   Future<void> deleteNotification(int id) async {
-    final response = await http.delete(Uri.parse('http://localhost:3000/api/notifications/$id'));
+    final response = await http.delete(Uri.parse('http://192.168.1.7:3000/api/notifications/$id'));
     if (response.statusCode == 200) {
       setState(() {
         notifications.removeWhere((notif) => notif['id'] == id);

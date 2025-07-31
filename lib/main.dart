@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rx_vision/views/forgot_password/forgotpassword_view.dart';
 import '../models/user_model.dart';
 
 // Import your views
@@ -40,6 +41,8 @@ class RxVisionApp extends StatelessWidget {
         '/changeName': (context) => const ChangeNameView(),
         '/changeEmail': (context) => const ChangeEmailView(),
         '/changePassword': (context) => const ChangePasswordView(),
+        '/forgot-password':(context)=> const ForgotPasswordView(),
+        '/reset-password': (contect)=> const ForgotPasswordView(),
         '/stock': (context) {
           final medicineNumber = ModalRoute.of(context)!.settings.arguments as String;
           return StockDetailsView(medicineNumber: medicineNumber);

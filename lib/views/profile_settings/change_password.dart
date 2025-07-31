@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:rx_vision/services/user_service.dart';
+import 'package:http/http.dart'as http;
+import 'dart:convert';
 
 void main() {
   runApp(const MyApp());
@@ -178,17 +181,47 @@ class ChangePasswordView extends StatelessWidget {
                               style: ElevatedButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(vertical: 14),
                               ),
-                              onPressed: () {
-                                if (formKey.currentState!.validate()) {
-                                  // Handle password change logic here
-                                  Navigator.pop(context);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Password changed successfully'),
-                                    ),
-                                  );
-                                }
-                              },
+onPressed: () async {
+  if (formKey.currentState!.validate()) {
+    final currentPassword = currentPassController.text;
+    final newPassword = newPassController.text;
+
+    try {
+      final response = await http.post(
+        Uri.parse('http://192.168.1.7:3000/api/users/change-password'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${UserService.authToken}',
+        },
+        body: jsonEncode({
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        // Password successfully changed — log out user
+        UserService.clearUser();
+
+        // Pop dialog
+        Navigator.pop(context);
+
+        // Navigate to login screen
+        Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+      } else {
+        final error = jsonDecode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error['message'] ?? 'Password change failed')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('An error occurred. Please try again.')),
+      );
+    }
+  }
+},
+
                               child: const Text('Confirm'),
                             ),
                           ),

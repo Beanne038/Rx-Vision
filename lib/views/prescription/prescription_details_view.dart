@@ -16,12 +16,12 @@ class _PrescriptionDetailsViewState extends State<PrescriptionDetailsView> {
     final id = widget.prescription['id'];
     final patientName = widget.prescription['patient_name'];
 
-    final response = await http.delete(Uri.parse('http://localhost:3000/api/prescriptions/$id'));
+    final response = await http.delete(Uri.parse('http://192.168.1.7:3000/api/prescriptions/$id'));
 
     if (response.statusCode == 200) {
       // ✅ Send notification after successful deletion
       await http.post(
-        Uri.parse('http://localhost:3000/api/notifications'),
+        Uri.parse('http://192.168.1.7:3000/api/notifications'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'title': 'Prescription Dispensed',
